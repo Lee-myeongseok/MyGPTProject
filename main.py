@@ -5,7 +5,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI
 from langchain import hub
 from dotenv import load_dotenv
+
 import streamlit as st
+import glob
 
 
 # env 정보 가져오기
@@ -24,23 +26,11 @@ def print_message():
 
 
 # 체인 생성
-def create_chain(prompt_type):
-    # prompt | llm | output_parser
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "당신은 친절한 AI 입니다. 다음의 질문에 간결하게 답변해 주세요.",
-            ),
-            ("user", "#Question:\n{question}"),
-        ]
-    )
+def create_chain(prompt_filepath, task=""):
+    prompt = load_prompt(prompt_filepath, encoding="utf-8")
 
-    # 프롬프트 정보 불러오기
-    if prompt_type == "SNS 게시글":
-        prompt = load_prompt("prompts/sns.yaml", encoding="utf-8")
-    elif prompt_type == "요약":
-        prompt = hub.pull("teddynote/chain-of-density-korean")
+    if task:
+        prompt = prompt.partial(task=task)
 
     llm = ChatOpenAI(model_name="gpt-4.1", temperature=0)
 
@@ -57,9 +47,10 @@ with st.sidebar:
     # 초기화 버튼
     clear_button = st.button("대화 초기화")
 
-    option = st.selectbox(
-        "프롬프트를 선택해 주세요", ("기본모드", "SNS 게시글", "요약"), index=0
-    )
+    prompt_files = glob.glob("prompts/*.yaml")
+
+    option = st.selectbox("프롬프트를 선택해 주세요", prompt_files, index=0)
+    task_input = st.text_input("TASK 입력", "")
 
 st.title("My Chat GPT")
 
@@ -80,7 +71,7 @@ if user_input:
     st.chat_message("user").write(user_input)
 
     # 체인 생성
-    chain = create_chain(option)
+    chain = create_chain(option, task=task_input)
     # ai_answer = chain.invoke({"question": user_input})
     response = chain.stream({"question": user_input})
 
